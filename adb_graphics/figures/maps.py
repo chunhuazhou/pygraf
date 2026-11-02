@@ -118,20 +118,20 @@ class Map():
             self.grid_info.update({'lat_1': 40.6, 'lat_2': 40.6, 'lon_0': 289.2})
         if self.model != 'hrrrhi':
             if self.tile in FULL_TILES:
-                self.corners = self.grid_info.pop('corners')
+                self.corners = self.grid_info.pop('corners', None)
             else:
                 self.corners = self.get_corners()
-                self.grid_info.pop('corners')
+                self.grid_info.pop('corners', None)
         else:
             self.corners = None
             if self.tile in FULL_TILES:
-                self.width = self.grid_info.pop('width')
-                self.height = self.grid_info.pop('height')
+                self.width = self.grid_info.pop('width', None)
+                self.height = self.grid_info.pop('height', None)
             else:
                 self.width = self.get_width()
-                self.grid_info.pop('width')
+                self.grid_info.pop('width', None)
                 self.height = self.get_height()
-                self.grid_info.pop('height')
+                self.grid_info.pop('height', None)
 
         # Some of Hawaii's smaller islands and islands in the Caribbean don't
         # show up with a larger threshold.
@@ -826,9 +826,15 @@ class MultiPanelDataMap(DataMap):
         ''' Add the member label to the top left of the plot '''
 
         ax = self.map.ax
+        lbl = str(self.member)
+        if lbl in ('0', 'det', 'DET'):
+            lbl = 'DET'
+        elif lbl.lower() == 'obs':
+            lbl = 'OBS'
+
         ax.text(
             0.05, 0.90,
-            self.member,
+            lbl,
             fontsize=18,
             fontweight='bold',
             backgroundcolor="white",

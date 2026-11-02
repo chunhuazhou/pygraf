@@ -4,6 +4,7 @@ This module is where pieces of the figures are put together. Data is
 compbined with maps and skewts to provide the final product.
 '''
 
+import copy
 import gc
 import os
 
@@ -37,14 +38,14 @@ def add_obs_panel(ax, model_name, obs_file, proj_info, short_name, tile):
     m = maps.Map(
         airport_fn=AIRPORTS,
         ax=ax,
-        grid_info=proj_info,
+        grid_info=copy.deepcopy(proj_info),
         model='obs',
         tile=tile,
         )
     dm = maps.MultiPanelDataMap(
         map_fields=map_fields,
         map_=m,
-        member='obs',
+        member='OBS',
         model_name=model_name,
         )
 
@@ -89,24 +90,40 @@ def parallel_maps(cla, fhr, ds, level, model, spec, variable, workdir,
         }
     map_class = map_classes.get(cla.graphic_type, maps.DataMap)
 
+    has_det = getattr(cla, 'has_det', True)
+
     for index, current_ax in enumerate(axes):
 
-        if current_ax is axes[-1] or index == cla.ens_size:
+        if current_ax is axes[-1]:
             last_panel = True
         mem = None
+        mem_label = None
         if cla.graphic_type == 'enspanel':
-            # Don't put data in the top left or bottom left panels.
-            if index in (0, 8):
+            # Panel 0: title and logo in top-left
+            if index == 0:
                 current_ax.axis('off')
-
-            # If we have less than 10 members, skip the remaining panels.
-            if index > cla.ens_size:
-                continue
-
-            # Shenanigans to match ensemble member to panel index
-            mem = 0 if index == 4 else index
-            mem = mem if mem < 4 else index - 1
-            mem = mem if mem < 8 else index - 2
+            # Panel 8: observation panel in bottom-left (if provided)
+            elif index == 8:
+                if not (spec.get('include_obs', False) and getattr(cla, 'obs_file_path', None)):
+                    current_ax.axis('off')
+                    continue
+            # Panel 4: deterministic member in middle-left (if provided)
+            elif index == 4:
+                if not has_det:
+                    current_ax.axis('off')
+                    continue
+                mem = 0
+                mem_label = 'DET'
+            else:
+                # Map remaining 9 panels to ensemble members 1..9
+                # Panels 1, 2, 3 -> ens members 1, 2, 3
+                # Panels 5, 6, 7 -> ens members 4, 5, 6
+                # Panels 9, 10, 11 -> ens members 7, 8, 9
+                ens_num = index if index < 4 else (index - 1 if index < 8 else index - 2)
+                # If deterministic member is loaded at slice 0, member N is at slice N.
+                # If deterministic is absent, member N is at slice N - 1.
+                mem = ens_num if has_det else (ens_num - 1)
+                mem_label = str(ens_num)
 
         # Object to be plotted on the map in filled contours.
         field = gribdata.fieldData(
@@ -171,7 +188,7 @@ def parallel_maps(cla, fhr, ds, level, model, spec, variable, workdir,
         dm = map_class(
             map_fields=map_fields,
             map_=m,
-            member=mem,
+            member=mem_label if cla.graphic_type == 'enspanel' else mem,
             model_name=cla.model_name,
             last_panel=last_panel,
             )
@@ -189,7 +206,7 @@ def parallel_maps(cla, fhr, ds, level, model, spec, variable, workdir,
                         ax=axes[8],
                         model_name=cla.model_name,
                         obs_file=cla.obs_file_path,
-                        proj_info=field.grid_info(),
+                        proj_info=copy.deepcopy(field.grid_info()),
                         short_name=variable,
                         tile=tile,
                         )

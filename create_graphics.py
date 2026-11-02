@@ -45,11 +45,27 @@ def check_file(cla, fhr, data_root=None, file_tmpl=None, mem=None):
     if file_tmpl is None:
         file_tmpl = cla.file_tmpl[0]
 
-    grib_path = os.path.join(data_root, file_tmpl)
-    if mem is not None:
-        grib_path = grib_path.format(FCST_TIME=fhr, mem=mem)
+    # For deterministic member (mem == 0), handle 'det' directory naming if present
+    if mem == 0:
+        cand_paths = []
+        if getattr(cla, 'det_tmpl', None):
+            cand_paths.append(os.path.join(data_root, cla.det_tmpl).format(FCST_TIME=fhr, mem=0))
+        # Support common directory naming for deterministic / control member (det, control, mem000)
+        for repl in ("det", "control", "mem000", "det000"):
+            t = file_tmpl.replace("mem{mem:03d}", repl).replace("mem{mem:02d}", repl)
+            t = t.replace("{mem:03d}", repl).replace("{mem:02d}", repl).replace("{mem}", repl)
+            cand_paths.append(os.path.join(data_root, t).format(FCST_TIME=fhr, mem=0))
+        cand_paths.append(os.path.join(data_root, file_tmpl).format(FCST_TIME=fhr, mem=0))
+
+        grib_path = cand_paths[0]
+        for cp in cand_paths:
+            if os.path.exists(cp):
+                grib_path = cp
+                break
+    elif mem is not None:
+        grib_path = os.path.join(data_root, file_tmpl).format(FCST_TIME=fhr, mem=mem)
     else:
-        grib_path = grib_path.format(FCST_TIME=fhr)
+        grib_path = os.path.join(data_root, file_tmpl).format(FCST_TIME=fhr)
 
     print(f'Checking on file {grib_path}')
     old_enough = utils.old_enough(cla.data_age, grib_path) if \
@@ -341,8 +357,26 @@ def parse_args(argv):
     ens_group.add_argument(
         '--ens_size',
         default=10,
-        help='Number of ensemble members.',
+        help='Number of ensemble members (including deterministic if present, e.g. 10 for 1 det + 9 ens, or 9 for pure ens).',
         type=int,
+        )
+    ens_group.add_argument(
+        '--has_det',
+        dest='has_det',
+        action='store_true',
+        default=None,
+        help='Explicitly include deterministic member in panel 4.',
+        )
+    ens_group.add_argument(
+        '--no_det',
+        dest='has_det',
+        action='store_false',
+        help='Explicitly omit deterministic member from panel 4 (leave slot blank).',
+        )
+    ens_group.add_argument(
+        '--det_tmpl',
+        default=None,
+        help='Optional separate file template for deterministic member (default: auto-detected in det/ or mem=0).',
         )
 
     # Diff args
@@ -567,12 +601,26 @@ def graphics_driver(cla):
                 # Expand template to create a list of ensemble member files and
                 # check if they exist and that they're old enough
                 grib_paths = []
-                ens_members = list(range(cla.ens_size))
+
+                # Determine whether deterministic member (mem=0) is included
+                include_det = getattr(cla, 'has_det', None)
+                if include_det is None:
+                    # Auto-detect whether deterministic file exists
+                    det_path, det_old = check_file(cla, fhr, mem=0)
+                    include_det = os.path.exists(det_path)
+                cla.has_det = include_det
+
+                # Candidate members to gather:
+                # If include_det: mem=0 (det) followed by ensemble members 1..ens_size-1 (or 1..9)
+                # If not include_det: ensemble members 1..ens_size (e.g. 1..9)
+                target_ens_count = cla.ens_size - 1 if (include_det and cla.ens_size > 1) else cla.ens_size
+                ens_members = ([0] if include_det else []) + list(range(1, target_ens_count + 1))
+
                 for mem in ens_members:
                     mem_path, mem_old_enough = check_file(cla, fhr, mem=mem)
                     if mem_old_enough:
                         grib_paths.append(mem_path)
-                    old_enough = len(grib_paths) == cla.ens_size
+                old_enough = len(grib_paths) == len(ens_members)
             else:
                 # Only checks existence/age of base file for diffs
                 grib_path, old_enough = pre_proc_grib_files(cla, fhr)
