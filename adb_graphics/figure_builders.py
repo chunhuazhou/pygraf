@@ -91,6 +91,9 @@ def parallel_maps(cla, fhr, ds, level, model, spec, variable, workdir,
     map_class = map_classes.get(cla.graphic_type, maps.DataMap)
 
     has_det = getattr(cla, 'has_det', True)
+    last_drawn_cf = None
+    last_drawn_dm = None
+    colorbar_drawn = False
 
     for index, current_ax in enumerate(axes):
 
@@ -102,11 +105,14 @@ def parallel_maps(cla, fhr, ds, level, model, spec, variable, workdir,
             # Panel 0: title and logo in top-left
             if index == 0:
                 current_ax.axis('off')
+                mem = 0
             # Panel 8: observation panel in bottom-left (if provided)
             elif index == 8:
-                if not (spec.get('include_obs', False) and getattr(cla, 'obs_file_path', None)):
+                obs_fp = getattr(cla, 'obs_file_path', None)
+                if not (spec.get('include_obs', False) and obs_fp and os.path.exists(obs_fp)):
                     current_ax.axis('off')
                     continue
+                mem = 0
             # Panel 4: deterministic member in middle-left (if provided)
             elif index == 4:
                 if not has_det:
@@ -124,6 +130,13 @@ def parallel_maps(cla, fhr, ds, level, model, spec, variable, workdir,
                 # If deterministic is absent, member N is at slice N - 1.
                 mem = ens_num if has_det else (ens_num - 1)
                 mem_label = str(ens_num)
+
+            # If member index exceeds available ensemble slices, blank panel and skip
+            if index != 0 and mem is not None:
+                ens_dim_size = ds.sizes.get('ens_mem', None)
+                if ens_dim_size is not None and mem >= ens_dim_size:
+                    current_ax.axis('off')
+                    continue
 
         # Object to be plotted on the map in filled contours.
         field = gribdata.fieldData(
@@ -199,21 +212,34 @@ def parallel_maps(cla, fhr, ds, level, model, spec, variable, workdir,
                 dm.title()
                 dm.add_logo(current_ax)
             elif index == 8:
-                if spec.get('include_obs', False) and cla.obs_file_path:
+                if spec.get('include_obs', False) and getattr(cla, 'obs_file_path', None):
                     # Add observation panel to lower left. Currently only
                     # supported for composite reflectivity.
-                    add_obs_panel(
-                        ax=axes[8],
-                        model_name=cla.model_name,
-                        obs_file=cla.obs_file_path,
-                        proj_info=copy.deepcopy(field.grid_info()),
-                        short_name=variable,
-                        tile=tile,
-                        )
+                    try:
+                        add_obs_panel(
+                            ax=axes[8],
+                            model_name=cla.model_name,
+                            obs_file=cla.obs_file_path,
+                            proj_info=copy.deepcopy(field.grid_info()),
+                            short_name=variable,
+                            tile=tile,
+                            )
+                    except Exception as err:
+                        print(f"Warning: Failed to plot observation panel: {err}")
+                        axes[8].axis('off')
             else:
-                dm.draw(show=True)
+                last_drawn_cf = dm.draw(show=True)
+                last_drawn_dm = dm
+                if last_panel:
+                    colorbar_drawn = True
         else:
             dm.draw(show=True)
+
+    # Ensure colorbar is rendered for enspanel if the last panel was skipped
+    if cla.graphic_type == 'enspanel' and not colorbar_drawn and last_drawn_dm is not None and last_drawn_cf is not None:
+        cax = plt.axes([0.0, 0.0, 1.0, 0.2])
+        last_drawn_dm._colorbar(ax=cax, cc=last_drawn_cf)
+        cax.axis('off')
 
     # Build the output path
     png_file = f'{variable}_{tile}_{level}_f{fhr:03d}.png'

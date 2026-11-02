@@ -45,27 +45,61 @@ def check_file(cla, fhr, data_root=None, file_tmpl=None, mem=None):
     if file_tmpl is None:
         file_tmpl = cla.file_tmpl[0]
 
+    cand_paths = []
+
     # For deterministic member (mem == 0), handle 'det' directory naming if present
     if mem == 0:
-        cand_paths = []
         if getattr(cla, 'det_tmpl', None):
             cand_paths.append(os.path.join(data_root, cla.det_tmpl).format(FCST_TIME=fhr, mem=0))
-        # Support common directory naming for deterministic / control member (det, control, mem000)
+        # Prioritize replacing "enkf/mem..." -> "det" so that the structure
+        # det/ and enkf/mem001 resolves cleanly when file_tmpl starts with enkf/
+        replace_patterns = [
+            "enkf/mem{mem:03d}", "enkf/mem{mem:02d}", "enkf/mem{mem}",
+            "enkf/{mem:03d}", "enkf/{mem:02d}", "enkf/{mem}",
+            "mem{mem:03d}", "mem{mem:02d}", "mem{mem}",
+            "{mem:03d}", "{mem:02d}", "{mem}",
+        ]
         for repl in ("det", "control", "mem000", "det000"):
-            t = file_tmpl.replace("mem{mem:03d}", repl).replace("mem{mem:02d}", repl)
-            t = t.replace("{mem:03d}", repl).replace("{mem:02d}", repl).replace("{mem}", repl)
-            cand_paths.append(os.path.join(data_root, t).format(FCST_TIME=fhr, mem=0))
+            for pat in replace_patterns:
+                if pat in file_tmpl:
+                    cand_paths.append(os.path.join(data_root, file_tmpl.replace(pat, repl)).format(FCST_TIME=fhr, mem=0))
+        # Support file located directly in det/ or control/ subfolder
+        base_tmpl = os.path.basename(file_tmpl)
+        cand_paths.append(os.path.join(data_root, "det", base_tmpl).format(FCST_TIME=fhr, mem=0))
+        cand_paths.append(os.path.join(data_root, "control", base_tmpl).format(FCST_TIME=fhr, mem=0))
         cand_paths.append(os.path.join(data_root, file_tmpl).format(FCST_TIME=fhr, mem=0))
 
-        grib_path = cand_paths[0]
-        for cp in cand_paths:
-            if os.path.exists(cp):
-                grib_path = cp
-                break
     elif mem is not None:
-        grib_path = os.path.join(data_root, file_tmpl).format(FCST_TIME=fhr, mem=mem)
+        # Direct path evaluation
+        direct_path = os.path.join(data_root, file_tmpl).format(FCST_TIME=fhr, mem=mem)
+        cand_paths.append(direct_path)
+
+        # If file_tmpl doesn't have enkf/, also check under enkf/ (e.g. data_root/enkf/mem001)
+        if not file_tmpl.startswith("enkf/") and "enkf/" not in file_tmpl:
+            cand_paths.append(os.path.join(data_root, "enkf", file_tmpl).format(FCST_TIME=fhr, mem=mem))
+
+        # If file_tmpl does not contain member template, try standard member subfolders
+        if "{mem" not in file_tmpl:
+            cand_paths.append(os.path.join(data_root, f"enkf/mem{mem:03d}", file_tmpl).format(FCST_TIME=fhr))
+            cand_paths.append(os.path.join(data_root, f"mem{mem:03d}", file_tmpl).format(FCST_TIME=fhr))
+
     else:
-        grib_path = os.path.join(data_root, file_tmpl).format(FCST_TIME=fhr)
+        cand_paths.append(os.path.join(data_root, file_tmpl).format(FCST_TIME=fhr))
+        cand_paths.append(os.path.join(data_root, "det", file_tmpl).format(FCST_TIME=fhr))
+
+    # Deduplicate while preserving order
+    seen = set()
+    unique_cand_paths = []
+    for cp in cand_paths:
+        if cp not in seen:
+            seen.add(cp)
+            unique_cand_paths.append(cp)
+
+    grib_path = unique_cand_paths[0]
+    for cp in unique_cand_paths:
+        if os.path.exists(cp):
+            grib_path = cp
+            break
 
     print(f'Checking on file {grib_path}')
     old_enough = utils.old_enough(cla.data_age, grib_path) if \
@@ -611,9 +645,9 @@ def graphics_driver(cla):
                 cla.has_det = include_det
 
                 # Candidate members to gather:
-                # If include_det: mem=0 (det) followed by ensemble members 1..ens_size-1 (or 1..9)
-                # If not include_det: ensemble members 1..ens_size (e.g. 1..9)
-                target_ens_count = cla.ens_size - 1 if (include_det and cla.ens_size > 1) else cla.ens_size
+                # If include_det: mem=0 (det) followed by ensemble members 1..ens_size-1 (capped at 9)
+                # If not include_det: ensemble members 1..ens_size (capped at 9 for 3x4 panel)
+                target_ens_count = min(cla.ens_size - 1, 9) if (include_det and cla.ens_size > 1) else min(cla.ens_size, 9)
                 ens_members = ([0] if include_det else []) + list(range(1, target_ens_count + 1))
 
                 for mem in ens_members:
