@@ -162,9 +162,15 @@ class UPPData(specs.VarSpec):
         for dim in [var for var in self.ds.variables \
                 if vertical_dim in var]:
 
-            # Get the current forecast hour slice, if it's in the dataset
-            selector = {'fcst_hr': fcst_hr} if 'fcst_hr' in self.ds[dim].dims else {}
-            ret.append(self.ds[dim].sel(**selector).values)
+            var_obj = self.ds[dim]
+            if 'fcst_hr' in var_obj.dims:
+                var_obj = var_obj.sel(fcst_hr=fcst_hr)
+            if 'ens_mem' in var_obj.dims:
+                var_obj = var_obj.isel(ens_mem=0)
+            val = var_obj.values
+            while hasattr(val, 'ndim') and val.ndim > 1:
+                val = val[0]
+            ret.append(val)
         return ret
 
     def _get_field(self, ncl_name):
@@ -220,20 +226,35 @@ class UPPData(specs.VarSpec):
         # For split-level variables, like 0-6km, find the matching index by
         # looping through both the possible vertical level arrays.
         if len(data_levels) == 2 and len(requested_level) == 2:
-            for lev, levset in enumerate(zip(*[list(lev) for lev in data_levels])):
-                if sorted(levset) == requested_level:
+            req = [float(x) for x in requested_level]
+            lev_arrays = []
+            for dlev in data_levels:
+                arr = np.asarray(dlev)
+                while hasattr(arr, 'ndim') and arr.ndim > 1:
+                    arr = arr[0]
+                lev_arrays.append(arr)
+            for lev, levset in enumerate(zip(*[list(lev) for lev in lev_arrays])):
+                try:
+                    cand = sorted([float(x) for x in np.asarray(levset).ravel()])
+                except Exception:
+                    continue
+                if cand == req:
                     return lev
 
         # For single-level variables, like 500mb, use the argwhere function to
         # return the matching index
         if len(requested_level) == 1:
+            req_val = float(requested_level[0])
             for dim_levels in data_levels:
-                lev = np.argwhere(dim_levels == requested_level[0])
+                arr = np.asarray(dim_levels)
+                while hasattr(arr, 'ndim') and arr.ndim > 1:
+                    arr = arr[0]
+                lev = np.argwhere(arr == req_val)
                 try:
-                    if lev or lev == [0]:
-                        lev = int(lev[0])
+                    if len(lev) > 0:
+                        lev = int(lev[0][0]) if lev.ndim > 1 else int(lev[0])
                         return lev
-                except ValueError:
+                except (ValueError, TypeError):
                     print(f'BAD LEVEL is {lev} for {field.name}')
 
             print(f"Could not find a level for {field.name} at requested \
