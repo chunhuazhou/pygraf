@@ -46,27 +46,21 @@ def check_file(cla, fhr, data_root=None, file_tmpl=None, mem=None):
     if file_tmpl is None:
         file_tmpl = cla.file_tmpl[0]
 
-    tmpl = getattr(cla, 'det_tmpl', None) if (mem == 0 and getattr(cla, 'det_tmpl', None)) else file_tmpl
-    grib_path = os.path.join(data_root, tmpl).format(FCST_TIME=fhr, mem=mem) if mem is not None else os.path.join(data_root, tmpl).format(FCST_TIME=fhr)
+    grib_path = os.path.join(data_root, file_tmpl)
+    if mem is not None:
+        grib_path = grib_path.format(FCST_TIME=fhr, mem=mem)
+    else:
+        grib_path = grib_path.format(FCST_TIME=fhr)
 
-    # If the candidate file doesn't exist directly, check common subfolder conventions
-    if not os.path.exists(grib_path) and mem is not None:
-        if mem == 0:
-            for repl in ("det", "control"):
-                alt = os.path.join(data_root, re.sub(r'(\w+/)?mem\{mem[^}]*\}', repl, file_tmpl)).format(FCST_TIME=fhr, mem=0)
-                if os.path.exists(alt):
-                    grib_path = alt
-                    break
-                alt_base = os.path.join(data_root, repl, os.path.basename(file_tmpl)).format(FCST_TIME=fhr, mem=0)
-                if os.path.exists(alt_base):
-                    grib_path = alt_base
-                    break
-        elif "{mem" not in file_tmpl:
-            for parent in ("enkf", ""):
-                alt = os.path.join(data_root, parent, f"mem{mem:03d}", file_tmpl).format(FCST_TIME=fhr)
-                if os.path.exists(alt):
-                    grib_path = alt
-                    break
+    # If deterministic member (mem=0) is in det/ instead of mem000/
+    if mem == 0 and not os.path.exists(grib_path):
+        for alt in (
+            os.path.join(data_root, re.sub(r'(\w+/)?mem\{mem[^}]*\}', 'det', file_tmpl)).format(FCST_TIME=fhr, mem=0),
+            os.path.join(data_root, 'det', os.path.basename(file_tmpl)).format(FCST_TIME=fhr, mem=0),
+        ):
+            if os.path.exists(alt):
+                grib_path = alt
+                break
 
     print(f'Checking on file {grib_path}')
     old_enough = utils.old_enough(cla.data_age, grib_path) if \
@@ -358,13 +352,8 @@ def parse_args(argv):
     ens_group.add_argument(
         '--ens_size',
         default=10,
-        help='Number of ensemble members (including deterministic if present, e.g. 10 for 1 det + 9 ens, or 9 for pure ens).',
+        help='Number of ensemble members.',
         type=int,
-        )
-    ens_group.add_argument(
-        '--det_tmpl',
-        default=None,
-        help='Optional separate file template for deterministic member (default: auto-detected in det/ or mem=0).',
         )
 
     # Diff args
