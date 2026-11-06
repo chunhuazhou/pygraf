@@ -91,9 +91,6 @@ def parallel_maps(cla, fhr, ds, level, model, spec, variable, workdir,
     map_class = map_classes.get(cla.graphic_type, maps.DataMap)
 
     has_det = getattr(cla, 'has_det', True)
-    last_drawn_cf = None
-    last_drawn_dm = None
-    colorbar_drawn = False
 
     for index, current_ax in enumerate(axes):
 
@@ -228,18 +225,9 @@ def parallel_maps(cla, fhr, ds, level, model, spec, variable, workdir,
                         print(f"Warning: Failed to plot observation panel: {err}")
                         axes[8].axis('off')
             else:
-                last_drawn_cf = dm.draw(show=True)
-                last_drawn_dm = dm
-                if last_panel:
-                    colorbar_drawn = True
+                dm.draw(show=True)
         else:
             dm.draw(show=True)
-
-    # Ensure colorbar is rendered for enspanel if the last panel was skipped
-    if cla.graphic_type == 'enspanel' and not colorbar_drawn and last_drawn_dm is not None and last_drawn_cf is not None:
-        cax = plt.axes([0.0, 0.0, 1.0, 0.2])
-        last_drawn_dm._colorbar(ax=cax, cc=last_drawn_cf)
-        cax.axis('off')
 
     # Build the output path
     png_file = f'{variable}_{tile}_{level}_f{fhr:03d}.png'
