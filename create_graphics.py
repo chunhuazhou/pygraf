@@ -595,7 +595,6 @@ def graphics_driver(cla):
                 # Auto-detect whether deterministic member (mem=0) is available for current lead
                 det_path, det_old = check_file(cla, fhr, mem=0)
                 include_det = os.path.exists(det_path)
-                cla.has_det = include_det
 
                 # Candidate members to gather:
                 # If include_det: mem=0 (det) followed by ensemble members 1..ens_size-1 (capped at 9)

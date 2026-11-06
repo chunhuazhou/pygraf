@@ -90,50 +90,31 @@ def parallel_maps(cla, fhr, ds, level, model, spec, variable, workdir,
         }
     map_class = map_classes.get(cla.graphic_type, maps.DataMap)
 
-    has_det = getattr(cla, 'has_det', True)
-
     for index, current_ax in enumerate(axes):
 
-        if current_ax is axes[-1]:
+        if current_ax is axes[-1] or index == cla.ens_size:
             last_panel = True
         mem = None
-        mem_label = None
         if cla.graphic_type == 'enspanel':
-            # Panel 0: title and logo in top-left
-            if index == 0:
+            # Don't put data in the top left or bottom left panels.
+            if index in (0, 8):
                 current_ax.axis('off')
-                mem = 0
-            # Panel 8: observation panel in bottom-left (if provided)
-            elif index == 8:
-                obs_fp = getattr(cla, 'obs_file_path', None)
-                if not (spec.get('include_obs', False) and obs_fp and os.path.exists(obs_fp)):
-                    current_ax.axis('off')
-                    continue
-                mem = 0
-            # Panel 4: deterministic member in middle-left (if provided)
-            elif index == 4:
-                if not has_det:
-                    current_ax.axis('off')
-                    continue
-                mem = 0
-                mem_label = 'DET'
-            else:
-                # Map remaining 9 panels to ensemble members 1..9
-                # Panels 1, 2, 3 -> ens members 1, 2, 3
-                # Panels 5, 6, 7 -> ens members 4, 5, 6
-                # Panels 9, 10, 11 -> ens members 7, 8, 9
-                ens_num = index if index < 4 else (index - 1 if index < 8 else index - 2)
-                # If deterministic member is loaded at slice 0, member N is at slice N.
-                # If deterministic is absent, member N is at slice N - 1.
-                mem = ens_num if has_det else (ens_num - 1)
-                mem_label = str(ens_num)
 
-            # If member index exceeds available ensemble slices, blank panel and skip
-            if index != 0 and mem is not None:
-                ens_dim_size = ds.sizes.get('ens_mem', None)
-                if ens_dim_size is not None and mem >= ens_dim_size:
-                    current_ax.axis('off')
-                    continue
+            # If we have less than 10 members, skip the remaining panels.
+            if index > cla.ens_size:
+                continue
+
+            # Shenanigans to match ensemble member to panel index
+            mem = 0 if index == 4 else index
+            mem = mem if mem < 4 else index - 1
+            mem = mem if mem < 8 else index - 2
+
+            if index == 4 and hasattr(ds, 'ens_mem') and 0 not in ds.ens_mem.values:
+                current_ax.axis('off')
+                continue
+
+            if index in (0, 8) and hasattr(ds, 'ens_mem') and mem not in ds.ens_mem.values:
+                mem = int(ds.ens_mem.values[0])
 
         # Object to be plotted on the map in filled contours.
         field = gribdata.fieldData(
@@ -198,7 +179,7 @@ def parallel_maps(cla, fhr, ds, level, model, spec, variable, workdir,
         dm = map_class(
             map_fields=map_fields,
             map_=m,
-            member=mem_label if cla.graphic_type == 'enspanel' else mem,
+            member=mem,
             model_name=cla.model_name,
             last_panel=last_panel,
             )
