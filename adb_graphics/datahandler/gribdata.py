@@ -162,13 +162,11 @@ class UPPData(specs.VarSpec):
         for dim in [var for var in self.ds.variables \
                 if vertical_dim in var]:
 
-            selector = {}
-            if 'fcst_hr' in self.ds[dim].dims:
-                selector['fcst_hr'] = fcst_hr
+            # Get the current forecast hour slice, if it's in the dataset
+            selector = {'fcst_hr': fcst_hr} if 'fcst_hr' in self.ds[dim].dims else {}
             if 'ens_mem' in self.ds[dim].dims:
                 selector['ens_mem'] = self.ds.ens_mem.values[0]
-            val = np.asarray(self.ds[dim].sel(**selector).values).squeeze()
-            ret.append(val)
+            ret.append(np.asarray(self.ds[dim].sel(**selector).values).squeeze())
         return ret
 
     def _get_field(self, ncl_name):
