@@ -15,6 +15,7 @@ import glob
 from multiprocessing import Pool
 import os
 import random
+import re
 import string
 import subprocess
 import sys
@@ -45,61 +46,27 @@ def check_file(cla, fhr, data_root=None, file_tmpl=None, mem=None):
     if file_tmpl is None:
         file_tmpl = cla.file_tmpl[0]
 
-    cand_paths = []
+    tmpl = getattr(cla, 'det_tmpl', None) if (mem == 0 and getattr(cla, 'det_tmpl', None)) else file_tmpl
+    grib_path = os.path.join(data_root, tmpl).format(FCST_TIME=fhr, mem=mem) if mem is not None else os.path.join(data_root, tmpl).format(FCST_TIME=fhr)
 
-    # For deterministic member (mem == 0), handle 'det' directory naming if present
-    if mem == 0:
-        if getattr(cla, 'det_tmpl', None):
-            cand_paths.append(os.path.join(data_root, cla.det_tmpl).format(FCST_TIME=fhr, mem=0))
-        # Prioritize replacing "enkf/mem..." -> "det" so that the structure
-        # det/ and enkf/mem001 resolves cleanly when file_tmpl starts with enkf/
-        replace_patterns = [
-            "enkf/mem{mem:03d}", "enkf/mem{mem:02d}", "enkf/mem{mem}",
-            "enkf/{mem:03d}", "enkf/{mem:02d}", "enkf/{mem}",
-            "mem{mem:03d}", "mem{mem:02d}", "mem{mem}",
-            "{mem:03d}", "{mem:02d}", "{mem}",
-        ]
-        for repl in ("det", "control", "mem000", "det000"):
-            for pat in replace_patterns:
-                if pat in file_tmpl:
-                    cand_paths.append(os.path.join(data_root, file_tmpl.replace(pat, repl)).format(FCST_TIME=fhr, mem=0))
-        # Support file located directly in det/ or control/ subfolder
-        base_tmpl = os.path.basename(file_tmpl)
-        cand_paths.append(os.path.join(data_root, "det", base_tmpl).format(FCST_TIME=fhr, mem=0))
-        cand_paths.append(os.path.join(data_root, "control", base_tmpl).format(FCST_TIME=fhr, mem=0))
-        cand_paths.append(os.path.join(data_root, file_tmpl).format(FCST_TIME=fhr, mem=0))
-
-    elif mem is not None:
-        # Direct path evaluation
-        direct_path = os.path.join(data_root, file_tmpl).format(FCST_TIME=fhr, mem=mem)
-        cand_paths.append(direct_path)
-
-        # If file_tmpl doesn't have enkf/, also check under enkf/ (e.g. data_root/enkf/mem001)
-        if not file_tmpl.startswith("enkf/") and "enkf/" not in file_tmpl:
-            cand_paths.append(os.path.join(data_root, "enkf", file_tmpl).format(FCST_TIME=fhr, mem=mem))
-
-        # If file_tmpl does not contain member template, try standard member subfolders
-        if "{mem" not in file_tmpl:
-            cand_paths.append(os.path.join(data_root, f"enkf/mem{mem:03d}", file_tmpl).format(FCST_TIME=fhr))
-            cand_paths.append(os.path.join(data_root, f"mem{mem:03d}", file_tmpl).format(FCST_TIME=fhr))
-
-    else:
-        cand_paths.append(os.path.join(data_root, file_tmpl).format(FCST_TIME=fhr))
-        cand_paths.append(os.path.join(data_root, "det", file_tmpl).format(FCST_TIME=fhr))
-
-    # Deduplicate while preserving order
-    seen = set()
-    unique_cand_paths = []
-    for cp in cand_paths:
-        if cp not in seen:
-            seen.add(cp)
-            unique_cand_paths.append(cp)
-
-    grib_path = unique_cand_paths[0]
-    for cp in unique_cand_paths:
-        if os.path.exists(cp):
-            grib_path = cp
-            break
+    # If the candidate file doesn't exist directly, check common subfolder conventions
+    if not os.path.exists(grib_path) and mem is not None:
+        if mem == 0:
+            for repl in ("det", "control"):
+                alt = os.path.join(data_root, re.sub(r'(\w+/)?mem\{mem[^}]*\}', repl, file_tmpl)).format(FCST_TIME=fhr, mem=0)
+                if os.path.exists(alt):
+                    grib_path = alt
+                    break
+                alt_base = os.path.join(data_root, repl, os.path.basename(file_tmpl)).format(FCST_TIME=fhr, mem=0)
+                if os.path.exists(alt_base):
+                    grib_path = alt_base
+                    break
+        elif "{mem" not in file_tmpl:
+            for parent in ("enkf", ""):
+                alt = os.path.join(data_root, parent, f"mem{mem:03d}", file_tmpl).format(FCST_TIME=fhr)
+                if os.path.exists(alt):
+                    grib_path = alt
+                    break
 
     print(f'Checking on file {grib_path}')
     old_enough = utils.old_enough(cla.data_age, grib_path) if \
