@@ -362,19 +362,6 @@ def parse_args(argv):
         type=int,
         )
     ens_group.add_argument(
-        '--has_det',
-        dest='has_det',
-        action='store_true',
-        default=None,
-        help='Explicitly include deterministic member in panel 4.',
-        )
-    ens_group.add_argument(
-        '--no_det',
-        dest='has_det',
-        action='store_false',
-        help='Explicitly omit deterministic member from panel 4 (leave slot blank).',
-        )
-    ens_group.add_argument(
         '--det_tmpl',
         default=None,
         help='Optional separate file template for deterministic member (default: auto-detected in det/ or mem=0).',
@@ -603,15 +590,12 @@ def graphics_driver(cla):
                 # check if they exist and that they're old enough
                 grib_paths = []
 
-                # Determine whether deterministic member (mem=0) is included
-                include_det = getattr(cla, 'has_det', None)
-                if include_det is None:
-                    # Auto-detect whether deterministic file exists (check current lead or fhr=1)
-                    det_path, det_old = check_file(cla, fhr, mem=0)
-                    include_det = os.path.exists(det_path)
-                    if not include_det and fhr != 1:
-                        det_f1, _ = check_file(cla, 1, mem=0)
-                        include_det = os.path.exists(det_f1)
+                # Auto-detect whether deterministic member (mem=0) is included
+                det_path, det_old = check_file(cla, fhr, mem=0)
+                include_det = os.path.exists(det_path)
+                if not include_det and fhr != 1:
+                    det_f1, _ = check_file(cla, 1, mem=0)
+                    include_det = os.path.exists(det_f1)
                 cla.has_det = include_det
 
                 # Candidate members to gather:
