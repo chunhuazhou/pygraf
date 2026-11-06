@@ -48,19 +48,32 @@ def check_file(cla, fhr, data_root=None, file_tmpl=None, mem=None):
 
     grib_path = os.path.join(data_root, file_tmpl)
     if mem is not None:
-        grib_path = grib_path.format(FCST_TIME=fhr, mem=mem)
+        try:
+            grib_path = grib_path.format(FCST_TIME=fhr, mem=mem)
+        except (KeyError, IndexError):
+            grib_path = grib_path.format(FCST_TIME=fhr)
     else:
         grib_path = grib_path.format(FCST_TIME=fhr)
 
-    # If deterministic member (mem=0) is in det/ instead of mem000/
-    if mem == 0 and not os.path.exists(grib_path):
-        for alt in (
-            os.path.join(data_root, re.sub(r'(\w+/)?mem\{mem[^}]*\}', 'det', file_tmpl)).format(FCST_TIME=fhr, mem=0),
-            os.path.join(data_root, 'det', os.path.basename(file_tmpl)).format(FCST_TIME=fhr, mem=0),
-        ):
-            if os.path.exists(alt):
-                grib_path = alt
-                break
+    # If member file does not exist directly, check common subdirectories
+    if mem is not None and not os.path.exists(grib_path):
+        if mem == 0:
+            for alt in (
+                os.path.join(data_root, re.sub(r'(\w+/)?mem\{mem[^}]*\}', 'det', file_tmpl)).format(FCST_TIME=fhr, mem=0),
+                os.path.join(data_root, 'det', os.path.basename(file_tmpl)).format(FCST_TIME=fhr, mem=0),
+                os.path.join(data_root, 'control', os.path.basename(file_tmpl)).format(FCST_TIME=fhr, mem=0),
+            ):
+                if os.path.exists(alt):
+                    grib_path = alt
+                    break
+        else:
+            for alt in (
+                os.path.join(data_root, 'enkf', f'mem{mem:03d}', os.path.basename(file_tmpl)).format(FCST_TIME=fhr, mem=mem),
+                os.path.join(data_root, f'mem{mem:03d}', os.path.basename(file_tmpl)).format(FCST_TIME=fhr, mem=mem),
+            ):
+                if os.path.exists(alt):
+                    grib_path = alt
+                    break
 
     print(f'Checking on file {grib_path}')
     old_enough = utils.old_enough(cla.data_age, grib_path) if \
