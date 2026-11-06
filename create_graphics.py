@@ -362,12 +362,6 @@ def parse_args(argv):
         type=int,
         )
     ens_group.add_argument(
-        '--wait_det',
-        action='store_true',
-        default=os.getenv('WAIT_DET', 'false').lower() in ('true', '1', 'yes'),
-        help='Wait for deterministic grib2 file before proceeding with ensemble graphics.',
-        )
-    ens_group.add_argument(
         '--has_det',
         dest='has_det',
         action='store_true',
@@ -612,12 +606,12 @@ def graphics_driver(cla):
                 # Determine whether deterministic member (mem=0) is included
                 include_det = getattr(cla, 'has_det', None)
                 if include_det is None:
-                    if getattr(cla, 'wait_det', False):
-                        include_det = True
-                    else:
-                        # Auto-detect whether deterministic file exists
-                        det_path, det_old = check_file(cla, fhr, mem=0)
-                        include_det = os.path.exists(det_path)
+                    # Auto-detect whether deterministic file exists (check current lead or fhr=1)
+                    det_path, det_old = check_file(cla, fhr, mem=0)
+                    include_det = os.path.exists(det_path)
+                    if not include_det and fhr != 1:
+                        det_f1, _ = check_file(cla, 1, mem=0)
+                        include_det = os.path.exists(det_f1)
                 cla.has_det = include_det
 
                 # Candidate members to gather:
@@ -626,16 +620,11 @@ def graphics_driver(cla):
                 target_ens_count = min(cla.ens_size - 1, 9) if (include_det and cla.ens_size > 1) else min(cla.ens_size, 9)
                 ens_members = ([0] if include_det else []) + list(range(1, target_ens_count + 1))
 
-                missing_files = []
                 for mem in ens_members:
                     mem_path, mem_old_enough = check_file(cla, fhr, mem=mem)
                     if mem_old_enough:
                         grib_paths.append(mem_path)
-                    else:
-                        missing_files.append(mem_path)
                 old_enough = len(grib_paths) == len(ens_members)
-                if not old_enough and missing_files:
-                    grib_path = missing_files[0]
             else:
                 # Only checks existence/age of base file for diffs
                 grib_path, old_enough = pre_proc_grib_files(cla, fhr)
