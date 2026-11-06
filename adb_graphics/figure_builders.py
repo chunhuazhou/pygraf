@@ -45,7 +45,7 @@ def add_obs_panel(ax, model_name, obs_file, proj_info, short_name, tile):
     dm = maps.MultiPanelDataMap(
         map_fields=map_fields,
         map_=m,
-        member='OBS',
+        member='obs',
         model_name=model_name,
         )
 
