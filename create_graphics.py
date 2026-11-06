@@ -590,12 +590,9 @@ def graphics_driver(cla):
                 # check if they exist and that they're old enough
                 grib_paths = []
 
-                # Auto-detect whether deterministic member (mem=0) is included
+                # Auto-detect whether deterministic member (mem=0) is available for current lead
                 det_path, det_old = check_file(cla, fhr, mem=0)
                 include_det = os.path.exists(det_path)
-                if not include_det and fhr != 1:
-                    det_f1, _ = check_file(cla, 1, mem=0)
-                    include_det = os.path.exists(det_f1)
                 cla.has_det = include_det
 
                 # Candidate members to gather:
