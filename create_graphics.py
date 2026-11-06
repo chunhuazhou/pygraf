@@ -15,7 +15,6 @@ import glob
 from multiprocessing import Pool
 import os
 import random
-import re
 import string
 import subprocess
 import sys
@@ -48,32 +47,9 @@ def check_file(cla, fhr, data_root=None, file_tmpl=None, mem=None):
 
     grib_path = os.path.join(data_root, file_tmpl)
     if mem is not None:
-        try:
-            grib_path = grib_path.format(FCST_TIME=fhr, mem=mem)
-        except (KeyError, IndexError):
-            grib_path = grib_path.format(FCST_TIME=fhr)
+        grib_path = grib_path.format(FCST_TIME=fhr, mem=mem)
     else:
         grib_path = grib_path.format(FCST_TIME=fhr)
-
-    # If member file does not exist directly, check common subdirectories
-    if mem is not None and not os.path.exists(grib_path):
-        if mem == 0:
-            for alt in (
-                os.path.join(data_root, re.sub(r'(\w+/)?mem\{mem[^}]*\}', 'det', file_tmpl)).format(FCST_TIME=fhr, mem=0),
-                os.path.join(data_root, 'det', os.path.basename(file_tmpl)).format(FCST_TIME=fhr, mem=0),
-                os.path.join(data_root, 'control', os.path.basename(file_tmpl)).format(FCST_TIME=fhr, mem=0),
-            ):
-                if os.path.exists(alt):
-                    grib_path = alt
-                    break
-        else:
-            for alt in (
-                os.path.join(data_root, 'enkf', f'mem{mem:03d}', os.path.basename(file_tmpl)).format(FCST_TIME=fhr, mem=mem),
-                os.path.join(data_root, f'mem{mem:03d}', os.path.basename(file_tmpl)).format(FCST_TIME=fhr, mem=mem),
-            ):
-                if os.path.exists(alt):
-                    grib_path = alt
-                    break
 
     print(f'Checking on file {grib_path}')
     old_enough = utils.old_enough(cla.data_age, grib_path) if \
@@ -591,22 +567,12 @@ def graphics_driver(cla):
                 # Expand template to create a list of ensemble member files and
                 # check if they exist and that they're old enough
                 grib_paths = []
-
-                # Auto-detect whether deterministic member (mem=0) is available for current lead
-                det_path, det_old = check_file(cla, fhr, mem=0)
-                include_det = os.path.exists(det_path)
-
-                # Candidate members to gather:
-                # If include_det: mem=0 (det) followed by ensemble members 1..ens_size-1 (capped at 9)
-                # If not include_det: ensemble members 1..ens_size (capped at 9 for 3x4 panel)
-                target_ens_count = min(cla.ens_size - 1, 9) if (include_det and cla.ens_size > 1) else min(cla.ens_size, 9)
-                ens_members = ([0] if include_det else []) + list(range(1, target_ens_count + 1))
-
+                ens_members = list(range(cla.ens_size))
                 for mem in ens_members:
                     mem_path, mem_old_enough = check_file(cla, fhr, mem=mem)
                     if mem_old_enough:
                         grib_paths.append(mem_path)
-                old_enough = len(grib_paths) == len(ens_members)
+                    old_enough = len(grib_paths) == cla.ens_size
             else:
                 # Only checks existence/age of base file for diffs
                 grib_path, old_enough = pre_proc_grib_files(cla, fhr)
