@@ -907,12 +907,13 @@ class MultiPanelDataMap(DataMap):
         else:
             full_title = wrapped_title
 
-        # Main title high in panel 0 (y=0.95), sized prominently in regular font (no bold)
+        # Main title high in panel 0 (y=0.95), sized prominently at 16pt bold
         ax.text(0.0, 0.95,
                 f"{full_title}",
                 horizontalalignment='left',
                 verticalalignment='top',
-                fontsize=15,
+                fontsize=16,
+                fontweight='bold',
                 transform=ax.transAxes,
                 )
 
@@ -927,7 +928,7 @@ class MultiPanelDataMap(DataMap):
                     f"{contoured}",
                     horizontalalignment='left',
                     verticalalignment='top',
-                    fontsize=12,
+                    fontsize=13,
                     transform=ax.transAxes,
                     )
             y_pos -= 0.10
@@ -936,7 +937,7 @@ class MultiPanelDataMap(DataMap):
         ax.text(0.0, y_pos,
                 f"{self.model_name}: {atime}\nFcst Hr: {f.fhr}, Valid Time {vtime}",
                 alpha=None,
-                fontsize=13,
+                fontsize=14,
                 horizontalalignment='left',
                 verticalalignment='top',
                 transform=ax.transAxes,
