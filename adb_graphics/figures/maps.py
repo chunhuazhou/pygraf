@@ -907,13 +907,12 @@ class MultiPanelDataMap(DataMap):
         else:
             full_title = wrapped_title
 
-        # Main title high in panel 0 (y=0.95), sized prominently
+        # Main title high in panel 0 (y=0.95), sized prominently in regular font (no bold)
         ax.text(0.0, 0.95,
                 f"{full_title}",
                 horizontalalignment='left',
                 verticalalignment='top',
                 fontsize=15,
-                fontweight='bold',
                 transform=ax.transAxes,
                 )
 
