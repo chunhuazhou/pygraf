@@ -47,10 +47,26 @@ def add_obs_panel(ax, model_name, obs_file, proj_info, short_name, tile):
         model='obs',
         tile=tile,
         )
+
+    # Determine MRMS valid time up to minutes from filename or field
+    obs_time = ''
+    if obs_file:
+        import re
+        m_ts = re.search(r'(\d{8})[-_](\d{2})(\d{2})', os.path.basename(obs_file))
+        if m_ts:
+            obs_time = f"{m_ts.group(1)} {m_ts.group(2)}:{m_ts.group(3)} UTC"
+    if not obs_time:
+        try:
+            obs_time = field.valid_dt.strftime('%Y%m%d %H:%M UTC')
+        except Exception:
+            pass
+
+    obs_label = f"MRMS: {obs_time}" if obs_time else "MRMS"
+
     dm = maps.MultiPanelDataMap(
         map_fields=map_fields,
         map_=m,
-        member='obs',
+        member=obs_label,
         model_name=model_name,
         )
 
@@ -234,9 +250,8 @@ def parallel_maps(cla, fhr, ds, level, model, spec, variable, workdir,
                 colorbar_drawn = True
 
     if not colorbar_drawn and last_drawn_dm and last_drawn_cf:
-        cax = plt.axes([0.0, 0.0, 1.0, 0.2])
-        last_drawn_dm._colorbar(ax=cax, cc=last_drawn_cf)
-        cax.axis('off')
+        last_drawn_dm._colorbar(cc=last_drawn_cf)
+        colorbar_drawn = True
 
     # Build the output path
     png_file = f'{variable}_{tile}_{level}_f{fhr:03d}.png'

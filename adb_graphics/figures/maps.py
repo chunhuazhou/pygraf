@@ -808,11 +808,8 @@ class MultiPanelDataMap(DataMap):
         self._label_member()
 
         # Finish with the colorbar on the last panel only
-        # Plot it on the full figure scale.
         if self.last_panel:
-            cax = plt.axes([0.0, 0.0, 1.0, 0.2])
-            self._colorbar(ax=cax, cc=cf)
-            cax.axis('off')
+            self._colorbar(cc=cf)
 
         # Create a pop-up to display the figure, if show=True
         if show:
@@ -823,42 +820,72 @@ class MultiPanelDataMap(DataMap):
 
     def _label_member(self):
 
-        ''' Add the member label to the top left of the plot '''
+        ''' Add the member label above each panel '''
 
         ax = self.map.ax
         lbl = str(self.member)
-        if lbl in ('0', 'det', 'DET'):
-            lbl = 'DET'
+        if lbl in ('0', 'det', 'DET', 'control', 'Control'):
+            lbl = 'Control'
+        elif lbl.isdigit():
+            lbl = f"m{int(lbl):03d}"
         elif lbl.lower() == 'obs':
-            lbl = 'OBS'
+            lbl = 'MRMS'
 
-        ax.text(
-            0.05, 0.90,
-            lbl,
-            fontsize=18,
-            fontweight='bold',
-            backgroundcolor="white",
-            transform=ax.transAxes,
+        ax.set_title(lbl, loc='left', fontsize=14, fontweight='bold', pad=4)
+
+    def _colorbar(self, cc, ax=None):
+
+        ''' Internal method that plots an enlarged color bar for multipanel plots. '''
+
+        if self.field.ticks > 0:
+            ticks = np.arange(np.amin(self.field.clevs),
+                              np.amax(self.field.clevs+1), self.field.ticks)
+        elif self.field.ticks == 0:
+            ticks = self.field.clevs
+        else:
+            ticks = self.field.clevs[0:len(self.field.clevs):-self.field.ticks]
+        ticks = np.around(ticks, 4)
+
+        if self.field.short_name == 'flru':
+            ticks = [label.rjust(30) for label in ['VFR', 'MVFR', 'IFR', 'LIFR']]
+
+        if self.field.short_name == 'icsev':
+            ticks = [label.rjust(30) for label in ['TRACE', 'LIGHT', 'MODERATE', 'HEAVY']]
+
+        # Dedicated colorbar axis centered horizontally across the bottom
+        cbar_ax = plt.axes([0.18, 0.02, 0.64, 0.035])
+        cbar = plt.colorbar(cc,
+                            cax=cbar_ax,
+                            orientation='horizontal',
+                            ticks=ticks,
+                            )
+        cbar.ax.tick_params(labelsize=14)
+        cbar.ax.set_xticklabels(ticks, fontsize=14)
+
+    @staticmethod
+    def add_logo(ax):
+
+        ''' Puts the NOAA logo in the lower-left of panel 0 without overlapping text. '''
+
+        logo = mpimg.imread('static/noaa-logo-50x50.png')
+        imagebox = mpob.OffsetImage(logo)
+        ab = mpob.AnnotationBbox(
+            imagebox,
+            (0.08, 0.20),
+            box_alignment=(0.5, 0.5),
+            frameon=False,
+            xycoords='axes fraction',
             )
+        ax.add_artist(ab)
 
     def title(self):
 
-        ''' Draw the title for a map. '''
+        ''' Draw the title for a multipanel map. '''
 
         f = self.field
         atime = f.date_to_str(f.anl_dt)
         vtime = f.date_to_str(f.valid_dt)
         ax = self.map.ax
-
-        # Analysis time (top) and forecast hour with Valid Time (bottom) on the left
-        ax.text(0.0, 0.5,
-                f"{self.model_name}: {atime}\nFcst Hr: {f.fhr}, Valid Time {vtime}",
-                alpha=None,
-                fontsize=14,
-                horizontalalignment='left',
-                verticalalignment='top',
-                transform=ax.transAxes,
-                )
 
         level, lev_unit = f.numeric_level(index_match=False)
         if f.vspec.get('print_units', True):
@@ -866,27 +893,41 @@ class MultiPanelDataMap(DataMap):
         else:
             units = f''
 
-        # Title or Atmospheric level and unit in the high center
+        # Title high in the panel (y=0.95)
         if f.vspec.get('title'):
             title = f"{f.vspec.get('title')} {units}"
         else:
             level = level if not isinstance(level, list) else level[0]
             title = f'{level} {lev_unit} {f.field.long_name} {units}'
-        ax.text(0, 0.7,
+        ax.text(0.0, 0.95,
                 f"{title}",
                 horizontalalignment='left',
                 verticalalignment='top',
                 fontsize=16,
+                fontweight='bold',
                 transform=ax.transAxes,
                 )
 
         # Two lines for hatched data (top), and contoured data (bottom) on the right
         contoured = self._set_overlay_string()
-        ax.text(0, 0.6,
-                f"{contoured}",
+        y_pos = 0.80
+        if contoured:
+            ax.text(0.0, y_pos,
+                    f"{contoured}",
+                    horizontalalignment='left',
+                    verticalalignment='top',
+                    fontsize=14,
+                    transform=ax.transAxes,
+                    )
+            y_pos = 0.68
+
+        # Analysis time and forecast hour with Valid Time on the left, well above logo
+        ax.text(0.0, y_pos,
+                f"{self.model_name}: {atime}\nFcst Hr: {f.fhr}, Valid Time {vtime}",
+                alpha=None,
+                fontsize=14,
                 horizontalalignment='left',
                 verticalalignment='top',
-                fontsize=14,
                 transform=ax.transAxes,
                 )
 

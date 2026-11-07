@@ -594,15 +594,7 @@ cref: # Composite reflectivity
     title: Ensemble Composite Reflectivity
   obs:
     <<: *refl
-    vertical_index: 0
-    ncl_name:
-      - MergedReflectivityQCComposite_P0_L102_GLL0
-      - MergedReflectivityQCComposite_P0_L102_GLC0
-      - MergedReflectivityQC_P0_L102_GLL0
-      - MergedReflectivityQC_P0_L102_GLC0
-      - REFC_P0_L{level_type}_{grid}
-      - REFC_P0_L200_GLC0
-      - REFC_P0_L10_GLC0
+    ncl_name: MergedReflectivityQCComposite_P0_L102_GLL0
     title: Observed Composite Reflectivity
   sfc:
     <<: *refl
