@@ -207,6 +207,10 @@ class UPPData(specs.VarSpec):
           level.
         '''
 
+        # If level is 'obs' or model is 'obs', vertical level is index 0
+        if getattr(self, 'model', None) == 'obs' or level == 'obs':
+            return 0
+
         # The index of the requested level
         lev = spec.get('vertical_index')
         if lev is not None:
@@ -895,6 +899,9 @@ class fieldData(UPPData):
         transforms = spec.get('transform')
         if transforms and do_transform:
             vals = self.get_transform(transforms, vals)
+
+        if getattr(self, 'model', None) == 'obs' or self.level == 'obs':
+            vals = vals.squeeze()
 
         return vals
 

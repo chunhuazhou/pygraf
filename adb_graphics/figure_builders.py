@@ -211,7 +211,9 @@ def parallel_maps(cla, fhr, ds, level, model, spec, variable, workdir,
                             tile=tile,
                             )
                     except Exception as err:
-                        print(f"Warning: Failed to plot observation panel: {err}")
+                        import traceback
+                        traceback.print_exc()
+                        print(f"Warning: Failed to plot observation panel: {err}", flush=True)
                         axes[8].axis('off')
             else:
                 cf = dm.draw(show=False)
