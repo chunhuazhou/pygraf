@@ -587,26 +587,33 @@ def graphics_driver(cla):
             else:
                 if cla.all_leads:
                     # Wait on the missing file for an arbitrary 90% of wait time
-                    if time.time() - timer_end > cla.wait_time * 60 * .9:
+                    if time.time() - timer_end >= cla.wait_time * 60 * .9:
                         print(f"Giving up waiting on {grib_path}. \n",
                               f"Removing accumulated variables from image list \n",
                               f"{LOG_BREAK}\n")
                         remove_accumulated_images(cla)
-                        # Explicitly set -all_leads to False
-                        cla.all_leads = False
                         if cla.graphic_type == 'enspanel' and grib_paths:
                             old_enough = True
                             fcst_hours.remove(fhr)
                             fhr_as_list = [fhr]
+                        else:
+                            # Explicitly set -all_leads to False
+                            cla.all_leads = False
                     else:
                         # Break out of loop, wait for the desired period, and start
                         # back at this forecast hour.
                         print(f'Waiting for {grib_path} to be available.')
                         break
-                # It's safe to continue on processing the next forecast hour
-                print(f'Cannot find specified file(s), continuing to check on \n \
-                    next forecast hour.')
-                continue
+                elif cla.graphic_type == 'enspanel' and grib_paths:
+                    old_enough = True
+                    fcst_hours.remove(fhr)
+                    fhr_as_list = [fhr]
+
+                if not old_enough:
+                    # It's safe to continue on processing the next forecast hour
+                    print(f'Cannot find specified file(s), continuing to check on \n \
+                        next forecast hour.')
+                    continue
 
             # Create the working directory
             workdir = os.path.join(cla.output_path,
