@@ -397,15 +397,6 @@ class UPPData(specs.VarSpec):
             else:
                 return try_name
 
-        # Fallback for observations: inspect ds.variables for reflectivity field
-        if getattr(self, 'model', None) == 'obs' or self.level == 'obs':
-            for v in self.ds.variables:
-                if any(k in v for k in ('Reflectivity', 'REFC', 'Merged')):
-                    return v
-            for v in self.ds.variables:
-                if v not in ('lat', 'lon', 'lat_0', 'lon_0', 'gridlat_0', 'gridlon_0', 'time'):
-                    return v
-
         msg = f'Could not find any of {try_name} in input file'
         raise errors.GribReadError(msg)
 

@@ -216,13 +216,7 @@ class GribFiles():
 
         ''' Load the set of files into a single XArray structure. '''
 
-        if filenames is None:
-            all_leads = []
-        else:
-            og_ds = self.contents
-            if 'fcst_hr' in og_ds.coords:
-                og_ds = og_ds.drop_vars('fcst_hr')
-            all_leads = [og_ds]
+        all_leads = [] if filenames is None else [self.contents]
         filenames = self.filenames if filenames is None else filenames
 
         # 0h and 1h accumulated forecast variables are named differently than

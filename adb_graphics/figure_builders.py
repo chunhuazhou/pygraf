@@ -162,9 +162,6 @@ def parallel_maps(cla, fhr, ds, level, model, spec, variable, workdir,
 
     # set last_panel to send into DataMap for colorbar control
     last_panel = False
-    colorbar_drawn = False
-    last_drawn_cf = None
-    last_drawn_dm = None
 
     # Declare the type of object depending on graphic type
     map_classes = {
@@ -300,21 +297,9 @@ def parallel_maps(cla, fhr, ds, level, model, spec, variable, workdir,
                         print(f"Notice: No MRMS observation file found matching valid time {field.valid_dt} in {obs_source}", flush=True)
                         axes[8].axis('off')
             else:
-                cf = dm.draw(show=False)
-                last_drawn_cf = cf
-                last_drawn_dm = dm
-                if last_panel:
-                    colorbar_drawn = True
+                dm.draw(show=False)
         else:
-            cf = dm.draw(show=False)
-            last_drawn_cf = cf
-            last_drawn_dm = dm
-            if last_panel:
-                colorbar_drawn = True
-
-    if not colorbar_drawn and last_drawn_dm and last_drawn_cf:
-        last_drawn_dm._colorbar(cc=last_drawn_cf)
-        colorbar_drawn = True
+            dm.draw(show=False)
 
     # Build the output path
     png_file = f'{variable}_{tile}_{level}_f{fhr:03d}.png'
