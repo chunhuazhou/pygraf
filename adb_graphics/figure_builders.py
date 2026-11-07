@@ -107,30 +107,15 @@ def add_obs_panel(ax, model_name, obs_file, proj_info, short_name, tile):
         tile=tile,
         )
 
-    # Determine MRMS valid time up to minutes from filename or field
-    obs_time = ''
-    if obs_file:
-        import re
-        m_ts = re.search(r'(\d{8})[-_](\d{2})(\d{2})', os.path.basename(obs_file))
-        if m_ts:
-            obs_time = f"{m_ts.group(1)} {m_ts.group(2)}:{m_ts.group(3)} UTC"
-    if not obs_time:
-        try:
-            obs_time = field.valid_dt.strftime('%Y%m%d %H:%M UTC')
-        except Exception:
-            pass
-
-    obs_label = f"MRMS: {obs_time}" if obs_time else "MRMS"
-
     dm = maps.MultiPanelDataMap(
         map_fields=map_fields,
         map_=m,
-        member=obs_label,
+        member='obs',
         model_name=model_name,
         )
 
     # Draw the map
-    dm.draw(show=False)
+    dm.draw(show=True)
 
 def parallel_maps(cla, fhr, ds, level, model, spec, variable, workdir,
                   tile='full', ds2=None):
@@ -297,9 +282,9 @@ def parallel_maps(cla, fhr, ds, level, model, spec, variable, workdir,
                         print(f"Notice: No MRMS observation file found matching valid time {field.valid_dt} in {obs_source}", flush=True)
                         axes[8].axis('off')
             else:
-                dm.draw(show=False)
+                dm.draw(show=True)
         else:
-            dm.draw(show=False)
+            dm.draw(show=True)
 
     # Build the output path
     png_file = f'{variable}_{tile}_{level}_f{fhr:03d}.png'
