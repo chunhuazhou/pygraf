@@ -10,6 +10,7 @@ barbs, and descriptive annotation.
 
 import copy
 from math import isnan
+import textwrap
 import matplotlib.pyplot as plt
 import matplotlib.image as mpimg
 import matplotlib.offsetbox as mpob
@@ -893,39 +894,50 @@ class MultiPanelDataMap(DataMap):
         else:
             units = f''
 
-        # Title high in the panel (y=0.95), sized to stay within panel 0 without overlapping member 1
         if f.vspec.get('title'):
-            title = f"{f.vspec.get('title')} {units}"
+            main_title = f.vspec.get('title')
         else:
             level = level if not isinstance(level, list) else level[0]
-            title = f'{level} {lev_unit} {f.field.long_name} {units}'
+            main_title = f'{level} {lev_unit} {f.field.long_name}'.strip()
+
+        # Wrap long titles to stay safely within panel 0 without overlapping member 1
+        wrapped_title = '\n'.join(textwrap.fill(line, width=24) for line in main_title.split('\n'))
+        if units and units not in main_title:
+            full_title = f"{wrapped_title}\n{units}"
+        else:
+            full_title = wrapped_title
+
+        # Main title high in panel 0 (y=0.95), sized prominently
         ax.text(0.0, 0.95,
-                f"{title}",
+                f"{full_title}",
                 horizontalalignment='left',
                 verticalalignment='top',
-                fontsize=12,
+                fontsize=15,
                 fontweight='bold',
                 transform=ax.transAxes,
                 )
 
+        # Calculate vertical position for the subtitle based on title line count
+        n_lines = len(full_title.split('\n'))
+        y_pos = max(0.48, 0.95 - (n_lines * 0.10) - 0.03)
+
         # Two lines for hatched data (top), and contoured data (bottom) on the right
         contoured = self._set_overlay_string()
-        y_pos = 0.80
         if contoured:
             ax.text(0.0, y_pos,
                     f"{contoured}",
                     horizontalalignment='left',
                     verticalalignment='top',
-                    fontsize=11,
+                    fontsize=12,
                     transform=ax.transAxes,
                     )
-            y_pos = 0.68
+            y_pos -= 0.10
 
         # Analysis time and forecast hour with Valid Time on the left, well above logo
         ax.text(0.0, y_pos,
                 f"{self.model_name}: {atime}\nFcst Hr: {f.fhr}, Valid Time {vtime}",
                 alpha=None,
-                fontsize=11,
+                fontsize=13,
                 horizontalalignment='left',
                 verticalalignment='top',
                 transform=ax.transAxes,
