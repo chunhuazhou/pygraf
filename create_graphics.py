@@ -567,12 +567,13 @@ def graphics_driver(cla):
                 # Expand template to create a list of ensemble member files and
                 # check if they exist and that they're old enough
                 grib_paths = []
-                ens_members = list(range(cla.ens_size))
-                for mem in ens_members:
+                ens_members = []
+                for mem in range(cla.ens_size):
                     mem_path, mem_old_enough = check_file(cla, fhr, mem=mem)
                     if mem_old_enough:
                         grib_paths.append(mem_path)
-                    old_enough = len(grib_paths) == cla.ens_size
+                        ens_members.append(mem)
+                old_enough = len(grib_paths) == cla.ens_size
                 grib_path = grib_paths[0] if grib_paths else f"ensemble files for lead f{fhr:03d}"
             else:
                 # Only checks existence/age of base file for diffs
@@ -593,6 +594,10 @@ def graphics_driver(cla):
                         remove_accumulated_images(cla)
                         # Explicitly set -all_leads to False
                         cla.all_leads = False
+                        if cla.graphic_type == 'enspanel' and grib_paths:
+                            old_enough = True
+                            fcst_hours.remove(fhr)
+                            fhr_as_list = [fhr]
                     else:
                         # Break out of loop, wait for the desired period, and start
                         # back at this forecast hour.

@@ -109,12 +109,14 @@ def parallel_maps(cla, fhr, ds, level, model, spec, variable, workdir,
             mem = mem if mem < 4 else index - 1
             mem = mem if mem < 8 else index - 2
 
-            if index == 4 and hasattr(ds, 'ens_mem') and 0 not in ds.ens_mem.values:
-                current_ax.axis('off')
-                continue
-
+            # For panels 0 and 8, member is just used for grid info
             if index in (0, 8) and hasattr(ds, 'ens_mem') and mem not in ds.ens_mem.values:
                 mem = int(ds.ens_mem.values[0])
+
+            # If member is not in dataset, blank panel and skip
+            if index not in (0, 8) and hasattr(ds, 'ens_mem') and mem not in ds.ens_mem.values:
+                current_ax.axis('off')
+                continue
 
         # Object to be plotted on the map in filled contours.
         field = gribdata.fieldData(
