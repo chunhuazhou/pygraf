@@ -273,6 +273,10 @@ class GribFiles():
                                 coords='minimal',
                                 data_vars='all',
                                 )
+        # Assign coordinate labels to the combined dataset from coord_dims
+        for dim, vals in self.coord_dims.items():
+            if dim in ret.dims and len(vals) == ret.sizes[dim]:
+                ret = ret.assign_coords({dim: vals})
         return ret
 
     @property
