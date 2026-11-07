@@ -893,7 +893,7 @@ class MultiPanelDataMap(DataMap):
         else:
             units = f''
 
-        # Title high in the panel (y=0.95)
+        # Title high in the panel (y=0.95), sized to stay within panel 0 without overlapping member 1
         if f.vspec.get('title'):
             title = f"{f.vspec.get('title')} {units}"
         else:
@@ -903,7 +903,7 @@ class MultiPanelDataMap(DataMap):
                 f"{title}",
                 horizontalalignment='left',
                 verticalalignment='top',
-                fontsize=16,
+                fontsize=12,
                 fontweight='bold',
                 transform=ax.transAxes,
                 )
@@ -916,7 +916,7 @@ class MultiPanelDataMap(DataMap):
                     f"{contoured}",
                     horizontalalignment='left',
                     verticalalignment='top',
-                    fontsize=14,
+                    fontsize=11,
                     transform=ax.transAxes,
                     )
             y_pos = 0.68
@@ -925,7 +925,7 @@ class MultiPanelDataMap(DataMap):
         ax.text(0.0, y_pos,
                 f"{self.model_name}: {atime}\nFcst Hr: {f.fhr}, Valid Time {vtime}",
                 alpha=None,
-                fontsize=14,
+                fontsize=11,
                 horizontalalignment='left',
                 verticalalignment='top',
                 transform=ax.transAxes,
