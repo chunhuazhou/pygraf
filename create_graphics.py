@@ -573,6 +573,7 @@ def graphics_driver(cla):
                     if mem_old_enough:
                         grib_paths.append(mem_path)
                     old_enough = len(grib_paths) == cla.ens_size
+                grib_path = grib_paths[0] if grib_paths else f"ensemble files for lead f{fhr:03d}"
             else:
                 # Only checks existence/age of base file for diffs
                 grib_path, old_enough = pre_proc_grib_files(cla, fhr)
