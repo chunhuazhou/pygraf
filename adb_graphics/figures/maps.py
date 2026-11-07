@@ -915,7 +915,7 @@ class MapFields():
         if self.map_type == 'enspanel':
             return []
 
-        if 'global' in self.model  and self.tile in ['full']:
+        if self.model and 'global' in self.model and self.tile in ['full']:
             return []
 
         return self._overlay_fields('contours')

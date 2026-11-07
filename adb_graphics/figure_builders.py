@@ -34,7 +34,12 @@ def add_obs_panel(ax, model_name, obs_file, proj_info, short_name, tile):
         model='obs',
         short_name=short_name,
         )
-    map_fields = maps.MapFields(main_field=field)
+    map_fields = maps.MapFields(
+        main_field=field,
+        map_type='enspanel',
+        model='obs',
+        tile=tile,
+        )
     m = maps.Map(
         airport_fn=AIRPORTS,
         ax=ax,
