@@ -176,6 +176,10 @@ class UPPData(specs.VarSpec):
         try:
             field = self.ds[ncl_name.format(level_type=self.level_type)]
         except KeyError:
+            if getattr(self, 'model', None) == 'obs' or getattr(self, 'level', None) == 'obs':
+                for v in self.ds.variables:
+                    if any(k in v for k in ('Reflectivity', 'REFC', 'Merged')):
+                        return self.ds[v]
             raise errors.GribReadError(f'{ncl_name}')
         return field
 
@@ -388,6 +392,15 @@ class UPPData(specs.VarSpec):
                 continue
             else:
                 return try_name
+
+        # Fallback for observations: inspect ds.variables for reflectivity field
+        if getattr(self, 'model', None) == 'obs' or self.level == 'obs':
+            for v in self.ds.variables:
+                if any(k in v for k in ('Reflectivity', 'REFC', 'Merged')):
+                    return v
+            for v in self.ds.variables:
+                if v not in ('lat', 'lon', 'lat_0', 'lon_0', 'gridlat_0', 'gridlon_0', 'time'):
+                    return v
 
         msg = f'Could not find any of {try_name} in input file'
         raise errors.GribReadError(msg)
@@ -868,7 +881,10 @@ class fieldData(UPPData):
                     raise
 
         if self.mem is not None:
-            vals = vals.isel(**{'ens_mem': self.mem})
+            if 'ens_mem' in vals.coords and self.mem in vals.coords['ens_mem'].values:
+                vals = vals.sel(**{'ens_mem': self.mem})
+            elif 'ens_mem' in vals.dims and self.mem < vals.sizes.get('ens_mem', 0):
+                vals = vals.isel(**{'ens_mem': self.mem})
 
         # Select a single forecast hour (only if there are many)
         if not spec.get('accumulate', False):

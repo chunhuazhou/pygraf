@@ -50,7 +50,7 @@ def add_obs_panel(ax, model_name, obs_file, proj_info, short_name, tile):
         )
 
     # Draw the map
-    dm.draw(show=True)
+    dm.draw(show=False)
 
 def parallel_maps(cla, fhr, ds, level, model, spec, variable, workdir,
                   tile='full', ds2=None):
@@ -82,6 +82,9 @@ def parallel_maps(cla, fhr, ds, level, model, spec, variable, workdir,
 
     # set last_panel to send into DataMap for colorbar control
     last_panel = False
+    colorbar_drawn = False
+    last_drawn_cf = None
+    last_drawn_dm = None
 
     # Declare the type of object depending on graphic type
     map_classes = {
@@ -92,22 +95,22 @@ def parallel_maps(cla, fhr, ds, level, model, spec, variable, workdir,
 
     for index, current_ax in enumerate(axes):
 
-        if current_ax is axes[-1] or index == cla.ens_size:
-            last_panel = True
+        last_panel = False
         mem = None
         if cla.graphic_type == 'enspanel':
             # Don't put data in the top left or bottom left panels.
             if index in (0, 8):
                 current_ax.axis('off')
 
-            # If we have less than 10 members, skip the remaining panels.
-            if index > cla.ens_size:
-                continue
-
             # Shenanigans to match ensemble member to panel index
             mem = 0 if index == 4 else index
             mem = mem if mem < 4 else index - 1
             mem = mem if mem < 8 else index - 2
+
+            # If member exceeds ens_size, skip the remaining panels
+            if mem >= cla.ens_size:
+                current_ax.axis('off')
+                continue
 
             # For panels 0 and 8, member is just used for grid info
             if index in (0, 8) and hasattr(ds, 'ens_mem') and mem not in ds.ens_mem.values:
@@ -117,6 +120,9 @@ def parallel_maps(cla, fhr, ds, level, model, spec, variable, workdir,
             if index not in (0, 8) and hasattr(ds, 'ens_mem') and mem not in ds.ens_mem.values:
                 current_ax.axis('off')
                 continue
+
+        if current_ax is axes[-1] or (mem is not None and mem == cla.ens_size - 1):
+            last_panel = True
 
         # Object to be plotted on the map in filled contours.
         field = gribdata.fieldData(
@@ -208,9 +214,22 @@ def parallel_maps(cla, fhr, ds, level, model, spec, variable, workdir,
                         print(f"Warning: Failed to plot observation panel: {err}")
                         axes[8].axis('off')
             else:
-                dm.draw(show=True)
+                cf = dm.draw(show=False)
+                last_drawn_cf = cf
+                last_drawn_dm = dm
+                if last_panel:
+                    colorbar_drawn = True
         else:
-            dm.draw(show=True)
+            cf = dm.draw(show=False)
+            last_drawn_cf = cf
+            last_drawn_dm = dm
+            if last_panel:
+                colorbar_drawn = True
+
+    if not colorbar_drawn and last_drawn_dm and last_drawn_cf:
+        cax = plt.axes([0.0, 0.0, 1.0, 0.2])
+        last_drawn_dm._colorbar(ax=cax, cc=last_drawn_cf)
+        cax.axis('off')
 
     # Build the output path
     png_file = f'{variable}_{tile}_{level}_f{fhr:03d}.png'

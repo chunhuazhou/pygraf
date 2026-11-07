@@ -697,7 +697,7 @@ class DataMap():
         ''' Helper function to create mesh for various plot. '''
 
         lat, lon = field.latlons()
-        if self.map.model == 'obs':
+        if self.map.model == 'obs' and np.ndim(lat) == 1 and np.ndim(lon) == 1:
             lat, lon = np.meshgrid(lat, lon, sparse=False, indexing='ij')
 
         adjust = 360 if np.any(lon < 0) else 0
