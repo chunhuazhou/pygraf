@@ -216,7 +216,13 @@ class GribFiles():
 
         ''' Load the set of files into a single XArray structure. '''
 
-        all_leads = [] if filenames is None else [self.contents]
+        if filenames is None:
+            all_leads = []
+        else:
+            og_ds = self.contents
+            if 'fcst_hr' in og_ds.coords:
+                og_ds = og_ds.drop_vars('fcst_hr')
+            all_leads = [og_ds]
         filenames = self.filenames if filenames is None else filenames
 
         # 0h and 1h accumulated forecast variables are named differently than
@@ -273,10 +279,11 @@ class GribFiles():
                                 coords='minimal',
                                 data_vars='all',
                                 )
-        # Assign coordinate labels to the combined dataset from coord_dims
-        for dim, vals in self.coord_dims.items():
-            if dim in ret.dims and len(vals) == ret.sizes[dim]:
-                ret = ret.assign_coords({dim: vals})
+        # Assign coordinate labels to the combined dataset for ens_mem only
+        if 'ens_mem' in self.coord_dims and 'ens_mem' in ret.dims:
+            vals = self.coord_dims['ens_mem']
+            if len(vals) == ret.sizes['ens_mem']:
+                ret = ret.assign_coords({'ens_mem': vals})
         return ret
 
     @property
