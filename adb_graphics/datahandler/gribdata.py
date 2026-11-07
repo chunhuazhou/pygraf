@@ -868,28 +868,21 @@ class fieldData(UPPData):
 
             if dim_name: # Field has a vertical dimension
 
-                if getattr(self, 'model', None) == 'obs' or getattr(self, 'level', None) == 'obs':
-                    # For obs reflectivity, compute column maximum across all vertical levels
-                    try:
-                        vals = vals.max(dim=dim_name)
-                    except Exception:
-                        vals = vals.max(axis=0)
-                else:
-                    # Use vertical_index if provided in kwargs
-                    lev = vertical_index if vertical_index is not None else \
-                            self._get_level(field, level, spec)
+                # Use vertical_index if provided in kwargs
+                lev = vertical_index if vertical_index is not None else \
+                        self._get_level(field, level, spec)
 
-                    if lev is None or dim_name is None:
-                        print(f'ERROR: Could not find dim_name ({dim_name}) or' \
-                              f'lev {lev} for {vals}')
-                        raise ValueError
+                if lev is None or dim_name is None:
+                    print(f'ERROR: Could not find dim_name ({dim_name}) or' \
+                          f'lev {lev} for {vals}')
+                    raise ValueError
 
-                    try:
-                        vals = vals.isel(**{dim_name: lev})
-                    except:
-                        print(f'Error for {vals.name} : {dim_name} {lev} \
-                                {level} {spec}')
-                        raise
+                try:
+                    vals = vals.isel(**{dim_name: lev})
+                except:
+                    print(f'Error for {vals.name} : {dim_name} {lev} \
+                            {level} {spec}')
+                    raise
 
         if self.mem is not None:
             if 'ens_mem' in vals.coords and self.mem in vals.coords['ens_mem'].values:
