@@ -4,12 +4,8 @@ This module is where pieces of the figures are put together. Data is
 compbined with maps and skewts to provide the final product.
 '''
 
-import copy
-import datetime
 import gc
-import glob
 import os
-import re
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -21,62 +17,6 @@ from adb_graphics.figures import maps
 from adb_graphics.figures import skewt
 
 AIRPORTS = 'static/Airports_locs.txt'
-
-def find_obs_file(obs_source, valid_dt):
-    ''' Find the MRMS QCComposite observation file closest to the forecast valid time. '''
-    if not obs_source:
-        return None
-
-    # If a specific file was passed, check if it already matches valid_dt closely
-    if os.path.isfile(obs_source):
-        ts_pat = re.compile(r'(\d{8})[-_](\d{6})')
-        m = ts_pat.search(os.path.basename(obs_source))
-        if m:
-            try:
-                fdt = datetime.datetime.strptime(m.group(1) + m.group(2), "%Y%m%d%H%M%S")
-                if abs((fdt - valid_dt).total_seconds()) <= 900:
-                    return obs_source
-            except Exception:
-                pass
-        search_dir = os.path.dirname(obs_source)
-    else:
-        search_dir = obs_source
-
-    if not (search_dir and os.path.isdir(search_dir)):
-        return None
-
-    pdys = {
-        (valid_dt - datetime.timedelta(days=1)).strftime("%Y%m%d"),
-        valid_dt.strftime("%Y%m%d"),
-        (valid_dt + datetime.timedelta(days=1)).strftime("%Y%m%d"),
-    }
-    dirs_to_check = [search_dir]
-    for p in pdys:
-        dirs_to_check.append(os.path.join(search_dir, p))
-
-    candidates = []
-    for sdir in dirs_to_check:
-        if os.path.isdir(sdir):
-            for p in pdys:
-                candidates.extend(glob.glob(os.path.join(sdir, f"*{p}*MergedReflectivityQCComposite*.grib2*")))
-            candidates.extend(glob.glob(os.path.join(sdir, "*MergedReflectivityQCComposite*.grib2*")))
-
-    best_file, best_diff = None, float("inf")
-    ts_pat = re.compile(r'(\d{8})[-_](\d{6})')
-    for f in set(candidates):
-        m = ts_pat.search(os.path.basename(f))
-        if m:
-            try:
-                fdt = datetime.datetime.strptime(m.group(1) + m.group(2), "%Y%m%d%H%M%S")
-                diff = abs((fdt - valid_dt).total_seconds())
-                if diff < best_diff:
-                    best_diff, best_file = diff, f
-            except Exception:
-                continue
-
-    if best_file and best_diff <= 3600:
-        return best_file
-    return None
 
 def add_obs_panel(ax, model_name, obs_file, proj_info, short_name, tile):
 
@@ -102,7 +42,7 @@ def add_obs_panel(ax, model_name, obs_file, proj_info, short_name, tile):
     m = maps.Map(
         airport_fn=AIRPORTS,
         ax=ax,
-        grid_info=copy.deepcopy(proj_info),
+        grid_info=proj_info,
         model='obs',
         tile=tile,
         )
@@ -260,27 +200,23 @@ def parallel_maps(cla, fhr, ds, level, model, spec, variable, workdir,
                 dm.title()
                 dm.add_logo(current_ax)
             elif index == 8:
-                obs_source = getattr(cla, 'obs_file_path', None) or os.getenv('OBSPATH_MRMS_COMPOSITE', None)
-                if spec.get('include_obs', False) and obs_source:
-                    obs_file = find_obs_file(obs_source, field.valid_dt)
-                    if obs_file:
-                        try:
-                            add_obs_panel(
-                                ax=axes[8],
-                                model_name=cla.model_name,
-                                obs_file=obs_file,
-                                proj_info=copy.deepcopy(field.grid_info()),
-                                short_name=variable,
-                                tile=tile,
-                                )
-                        except Exception as err:
-                            import traceback
-                            traceback.print_exc()
-                            print(f"Warning: Failed to plot observation panel: {err}", flush=True)
-                            axes[8].axis('off')
-                    else:
-                        print(f"Notice: No MRMS observation file found matching valid time {field.valid_dt} in {obs_source}", flush=True)
+                if spec.get('include_obs', False) and getattr(cla, 'obs_file_path', None):
+                    # Add observation panel to lower left. Currently only
+                    # supported for composite reflectivity.
+                    try:
+                        add_obs_panel(
+                            ax=axes[8],
+                            model_name=cla.model_name,
+                            obs_file=cla.obs_file_path,
+                            proj_info=field.grid_info(),
+                            short_name=variable,
+                            tile=tile,
+                            )
+                    except Exception as err:
+                        print(f"Warning: Failed to plot observation panel: {err}", flush=True)
                         axes[8].axis('off')
+                else:
+                    axes[8].axis('off')
             else:
                 dm.draw(show=True)
         else:
