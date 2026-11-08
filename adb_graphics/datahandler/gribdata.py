@@ -176,7 +176,7 @@ class UPPData(specs.VarSpec):
         try:
             field = self.ds[ncl_name.format(level_type=self.level_type)]
         except KeyError:
-            if getattr(self, 'model', None) == 'obs' or getattr(self, 'level', None) == 'obs':
+            if self.model == 'obs':
                 for v in self.ds.variables:
                     if any(k in v for k in ('Reflectivity', 'REFC', 'Merged')):
                         return self.ds[v]
@@ -207,8 +207,8 @@ class UPPData(specs.VarSpec):
           level.
         '''
 
-        # If level is 'obs' or model is 'obs', vertical level is index 0
-        if getattr(self, 'model', None) == 'obs' or level == 'obs':
+        # For observation fields, vertical level is index 0
+        if self.model == 'obs' or level == 'obs':
             return 0
 
         # The index of the requested level
@@ -891,7 +891,7 @@ class fieldData(UPPData):
         if transforms and do_transform:
             vals = self.get_transform(transforms, vals)
 
-        if getattr(self, 'model', None) == 'obs' or self.level == 'obs':
+        if self.model == 'obs':
             vals = vals.squeeze()
 
         return vals
