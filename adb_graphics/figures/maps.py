@@ -825,14 +825,16 @@ class MultiPanelDataMap(DataMap):
         ''' Add the member label to the top left of the plot '''
 
         ax = self.map.ax
-        ax.text(
-            0.05, 0.90,
-            self.member,
-            fontsize=18,
-            fontweight='bold',
-            backgroundcolor="white",
-            transform=ax.transAxes,
-            )
+        lbl = str(self.member)
+        if lbl in ('0', 'control'):
+            lbl = 'Control'
+        elif lbl.isdigit():
+            lbl = f"m{int(lbl):03d}"
+        elif lbl == 'obs':
+            vdt = getattr(self.field, 'valid_dt', None)
+            lbl = f"MRMS: {vdt.strftime('%Y%m%d %H:%M UTC')}" if vdt else 'MRMS'
+
+        ax.set_title(lbl, loc='left', fontsize=14, fontweight='bold', pad=4)
 
     def _colorbar(self, cc, ax=None):
 
