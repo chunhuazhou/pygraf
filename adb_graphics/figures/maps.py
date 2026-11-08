@@ -809,6 +809,7 @@ class MultiPanelDataMap(DataMap):
         self._label_member()
 
         # Finish with the colorbar on the last panel only
+        # Plot it on the full figure scale.
         if self.last_panel:
             self._colorbar(cc=cf)
 
@@ -821,7 +822,7 @@ class MultiPanelDataMap(DataMap):
 
     def _label_member(self):
 
-        ''' Add the member label above each panel '''
+        ''' Add the member label to the top left of the plot '''
 
         ax = self.map.ax
         lbl = str(self.member)
@@ -892,7 +893,7 @@ class MultiPanelDataMap(DataMap):
 
     def title(self):
 
-        ''' Draw the title for a multipanel map. '''
+        ''' Draw the title for a map. '''
 
         f = self.field
         atime = f.date_to_str(f.anl_dt)
